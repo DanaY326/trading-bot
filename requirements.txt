@@ -1,0 +1,1 @@
+alpaca-py>=0.44  # only needed for `python run.py paper` and tests/test_alpaca.py
