@@ -79,11 +79,20 @@ def synthetic_day(day: date, symbol: str = "SYN", mid: float = 3.00, seconds: fl
             for _ in range(rng.randint(3, 8)):
                 yield add(BID, best_bid - k, rng.choice((100, 100, 200, 300, 500)))
                 yield add(ASK, best_bid + 1 + k, rng.choice((100, 100, 200, 300, 500)))
+        bb, ba = best_bid, best_bid + 1
         while t < end:
             t += rng.expovariate(40.0)  # ~40 book events a second
             u = rng.random()
-            bb = max(levels[BID]) if levels[BID] else best_bid
-            ba = min(levels[ASK]) if levels[ASK] else bb + 1
+            # replenish an emptied side so the book never goes one-sided
+            for side in (BID, ASK):
+                if not levels[side]:
+                    other = levels[ASK if side == BID else BID]
+                    if side == BID:
+                        ref = min(other) - 1 if other else bb
+                    else:
+                        ref = max(other) + 1 if other else ba
+                    yield add(side, ref, 500)
+            bb, ba = max(levels[BID]), min(levels[ASK])
             if u < 0.48:  # add near the touch
                 side = BID if rng.random() < 0.5 else ASK
                 ticks = (bb - rng.choice((0, 0, 0, 1, 2))) if side == BID else (ba + rng.choice((0, 0, 0, 1, 2)))
@@ -121,12 +130,6 @@ def synthetic_day(day: date, symbol: str = "SYN", mid: float = 3.00, seconds: fl
                             del levels[resting][lvl]
                     else:
                         q[oid] = size - take
-                # replenish an emptied side so the book never goes one-sided
-                for side in (BID, ASK):
-                    if not levels[side]:
-                        other = levels[ASK if side == BID else BID]
-                        ref = (min(other) - 1) if side == BID else (max(other) + 1)
-                        yield add(side, ref, 500)
 
     return MboDay(symbol, day, open_ts, close_ts, gen())
 
